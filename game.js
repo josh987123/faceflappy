@@ -1796,7 +1796,14 @@ els.form.addEventListener("submit", async (e) => {
     STATE.faceImg = await loadImage(await circleMaskFallback(dataUrl, 256));
   }
 
-  els.form.classList.add('hidden');
+  // Hide the left panel and expand game area
+  document.getElementById('gamePanel').classList.add('game-active');
+  
+  // Resize canvas after panel animation
+  setTimeout(() => {
+    resizeCanvas();
+  }, 500);
+  
   initGame();
 });
 
