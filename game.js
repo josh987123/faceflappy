@@ -881,18 +881,6 @@ function gameOver(pipeIndex) {
   const prevBest = STATE.best;
   STATE.best = Math.max(STATE.best, STATE.score);
   
-  let message = STATE.quips[Math.floor(Math.random() * STATE.quips.length)]
-    .replace("{name}", STATE.name)
-    .replace("{score}", STATE.score);
-  
-  if (STATE.best > prevBest) {
-    message += " NEW RECORD!";
-    STATE.flashEffect = 2;
-    playSound('achievement');
-  }
-  
-  els.overMsg.textContent = message;
-  
   // Save progress
   const key = `ff_best_${STATE.name.trim().toLowerCase() || "player"}`;
   localStorage.setItem(key, String(STATE.best));
@@ -901,7 +889,427 @@ function gameOver(pipeIndex) {
   checkAchievements();
   saveStats();
   updateHud();
+  
+  // Show enhanced game over screen after a short delay
+  setTimeout(() => {
+    showEnhancedGameOver(prevBest);
+  }, 500);
+}
+
+function showEnhancedGameOver(prevBest) {
+  // Create enhanced game over screen
+  const overlay = els.over;
+  overlay.innerHTML = `
+    <div class="dialog enhanced-dialog">
+      <div class="game-over-header">
+        <h2>Game Over!</h2>
+        ${STATE.best > prevBest ? '<div class="new-record">🏆 NEW RECORD! 🏆</div>' : ''}
+      </div>
+      
+      <div class="score-display">
+        <div class="final-score">
+          <div class="score-number">${STATE.score}</div>
+          <div class="score-label">SCORE</div>
+        </div>
+        
+        <div class="score-stats">
+          <div class="stat-row">
+            <span>Best Score:</span>
+            <span class="stat-value">${STATE.best}</span>
+          </div>
+          <div class="stat-row">
+            <span>Max Combo:</span>
+            <span class="stat-value">${STATE.maxCombo}x</span>
+          </div>
+          <div class="stat-row">
+            <span>Perfect Passes:</span>
+            <span class="stat-value">${STATE.stats.perfectPasses}</span>
+          </div>
+          <div class="stat-row">
+            <span>Power-ups:</span>
+            <span class="stat-value">${STATE.stats.powerupsCollected}</span>
+          </div>
+        </div>
+      </div>
+      
+      ${STATE.stats.unlockedAchievements.length > 0 ? `
+        <div class="unlocks-section">
+          ${getNewUnlocksHTML()}
+        </div>
+      ` : ''}
+      
+      <div class="leaderboard-mini">
+        <h3>🏆 Top Scores</h3>
+        <div class="leaderboard-list">
+          ${getLeaderboardHTML()}
+        </div>
+      </div>
+      
+      <div class="actions-enhanced">
+        <button id="retryBtn" class="primary big-button">
+          <span class="button-icon">🔄</span>
+          <span>Play Again</span>
+        </button>
+        <button id="shareBtn" class="share-button">
+          <span class="button-icon">📤</span>
+          <span>Share</span>
+        </button>
+        <button id="menuBtn" class="menu-button">
+          <span class="button-icon">🏠</span>
+          <span>Menu</span>
+        </button>
+      </div>
+      
+      <div class="motivational">
+        ${getMotivationalMessage()}
+      </div>
+    </div>
+  `;
+  
+  // Add enhanced styles
+  addGameOverStyles();
+  
+  // Re-attach event listeners
+  document.getElementById('retryBtn').addEventListener('click', () => {
+    STATE.stats.retryCount++;
+    checkAchievements();
+    hideOverlay();
+    initGame();
+    setTimeout(() => startGame(), 500);
+  });
+  
+  document.getElementById('shareBtn').addEventListener('click', async () => {
+    STATE.stats.shareCount++;
+    checkAchievements();
+    
+    const emoji = STATE.score > 50 ? "🔥🔥🔥" : 
+                  STATE.score > 25 ? "⭐⭐" : 
+                  STATE.score > 10 ? "⭐" : "🎮";
+    const skinText = STATE.player.skin !== 'classic' ? ` using ${SKINS[STATE.player.skin].name} skin` : '';
+    const text = `${emoji} ${STATE.name} scored ${STATE.score} on Face Flappy${skinText}! Can you beat it? 🦅`;
+    
+    try {
+      await navigator.clipboard.writeText(text);
+      document.getElementById('shareBtn').innerHTML = '<span class="button-icon">✅</span><span>Copied!</span>';
+      setTimeout(() => {
+        document.getElementById('shareBtn').innerHTML = '<span class="button-icon">📤</span><span>Share</span>';
+      }, 1500);
+    } catch {
+      prompt("Copy your score:", text);
+    }
+  });
+  
+  document.getElementById('menuBtn').addEventListener('click', () => {
+    // Return to menu
+    document.getElementById('gamePanel').classList.remove('game-active');
+    els.form.classList.remove('hidden');
+    hideOverlay();
+    
+    // Update stats display
+    if (window.updateStatsDisplay) {
+      window.updateStatsDisplay(STATE.stats);
+    }
+  });
+  
   showOverlay();
+  
+  if (STATE.best > prevBest) {
+    STATE.flashEffect = 2;
+    playSound('achievement');
+  }
+}
+
+function getNewUnlocksHTML() {
+  // Check if any new achievements or skins were unlocked this game
+  const newAchievements = []; // Track in the game session
+  const newSkins = []; // Track in the game session
+  
+  let html = '<div class="new-unlocks">';
+  
+  if (newAchievements.length > 0 || newSkins.length > 0) {
+    html += '<h4>🎊 New Unlocks!</h4>';
+    // Add unlock details
+  }
+  
+  html += '</div>';
+  return html;
+}
+
+function getLeaderboardHTML() {
+  const leaders = STATE.stats.leaderboard.slice(0, 5);
+  if (leaders.length === 0) {
+    return '<div class="no-scores">No high scores yet!</div>';
+  }
+  
+  const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
+  let html = '';
+  
+  leaders.forEach((entry, i) => {
+    const isCurrentGame = entry.score === STATE.score && entry.name === STATE.name;
+    html += `
+      <div class="leader-row ${isCurrentGame ? 'current' : ''}">
+        <span class="leader-medal">${medals[i]}</span>
+        <span class="leader-name">${entry.name}</span>
+        <span class="leader-score">${entry.score}</span>
+      </div>
+    `;
+  });
+  
+  return html;
+}
+
+function getMotivationalMessage() {
+  const messages = {
+    low: [
+      "Keep practicing! You've got this! 💪",
+      "Every expert was once a beginner! 🌟",
+      "You're getting better each time! 📈"
+    ],
+    medium: [
+      "Great job! You're improving! 🎯",
+      "Nice run! Keep it up! 🚀",
+      "You're getting the hang of it! ⭐"
+    ],
+    high: [
+      "Wow! You're a natural! 🦅",
+      "Incredible skills! 🏆",
+      "You're a Face Flappy master! 👑"
+    ],
+    record: [
+      "LEGENDARY PERFORMANCE! 🌟🌟🌟",
+      "ABSOLUTELY INCREDIBLE! 🔥🔥🔥",
+      "YOU'RE THE CHAMPION! 🏆👑🏆"
+    ]
+  };
+  
+  let category = 'low';
+  if (STATE.score === STATE.best && STATE.best > 0) category = 'record';
+  else if (STATE.score >= 50) category = 'high';
+  else if (STATE.score >= 20) category = 'medium';
+  
+  const categoryMessages = messages[category];
+  return categoryMessages[Math.floor(Math.random() * categoryMessages.length)];
+}
+
+function addGameOverStyles() {
+  // Check if styles already exist
+  if (document.getElementById('gameOverStyles')) return;
+  
+  const style = document.createElement('style');
+  style.id = 'gameOverStyles';
+  style.textContent = `
+    .enhanced-dialog {
+      padding: 24px;
+      max-width: 520px;
+      animation: slideUpBounce 0.5s ease;
+    }
+    
+    @keyframes slideUpBounce {
+      0% { transform: translateY(50px) scale(0.9); opacity: 0; }
+      80% { transform: translateY(-5px) scale(1.01); }
+      100% { transform: translateY(0) scale(1); opacity: 1; }
+    }
+    
+    .game-over-header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    
+    .game-over-header h2 {
+      font-size: 32px;
+      margin: 0;
+      background: linear-gradient(45deg, #ff6b6b, #ffd93d);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    .new-record {
+      font-size: 18px;
+      color: #ffd700;
+      margin-top: 8px;
+      animation: pulse 1s ease infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    
+    .score-display {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+      padding: 16px;
+      background: linear-gradient(135deg, #667eea15, #764ba215);
+      border-radius: 12px;
+    }
+    
+    .final-score {
+      text-align: center;
+      padding: 10px;
+    }
+    
+    .score-number {
+      font-size: 48px;
+      font-weight: bold;
+      color: #4f7cff;
+      line-height: 1;
+    }
+    
+    .score-label {
+      font-size: 14px;
+      color: #6b768a;
+      margin-top: 4px;
+    }
+    
+    .score-stats {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      justify-content: center;
+    }
+    
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      color: #435;
+    }
+    
+    .stat-value {
+      font-weight: bold;
+      color: #4f7cff;
+    }
+    
+    .leaderboard-mini {
+      margin: 20px 0;
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+    
+    .leaderboard-mini h3 {
+      margin: 0 0 12px 0;
+      font-size: 16px;
+      text-align: center;
+    }
+    
+    .leader-row {
+      display: grid;
+      grid-template-columns: 30px 1fr auto;
+      gap: 10px;
+      padding: 6px;
+      margin: 4px 0;
+      border-radius: 6px;
+      transition: background 0.2s;
+    }
+    
+    .leader-row.current {
+      background: linear-gradient(45deg, #ffd70020, #ffed4e20);
+      border: 1px solid #ffd700;
+    }
+    
+    .leader-medal {
+      text-align: center;
+    }
+    
+    .leader-name {
+      font-weight: 500;
+    }
+    
+    .leader-score {
+      font-weight: bold;
+      color: #4f7cff;
+    }
+    
+    .no-scores {
+      text-align: center;
+      color: #6b768a;
+      padding: 20px;
+    }
+    
+    .actions-enhanced {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: 10px;
+      margin: 20px 0;
+    }
+    
+    .big-button {
+      padding: 14px 20px;
+      font-size: 16px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.3s ease;
+    }
+    
+    .big-button:hover {
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 6px 20px rgba(79, 124, 255, 0.3);
+    }
+    
+    .share-button, .menu-button {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+      gap: 4px;
+      font-size: 12px;
+      transition: all 0.2s ease;
+    }
+    
+    .share-button:hover, .menu-button:hover {
+      transform: translateY(-1px);
+      background: #f0f4ff;
+    }
+    
+    .button-icon {
+      font-size: 20px;
+    }
+    
+    .motivational {
+      text-align: center;
+      font-size: 14px;
+      color: #6b768a;
+      font-style: italic;
+      padding: 10px;
+      border-top: 1px solid #eee;
+      margin-top: 10px;
+    }
+    
+    .new-unlocks {
+      background: linear-gradient(135deg, #9c27b015, #673ab715);
+      padding: 12px;
+      border-radius: 8px;
+      margin: 16px 0;
+    }
+    
+    .new-unlocks h4 {
+      margin: 0 0 8px 0;
+      color: #9c27b0;
+      text-align: center;
+    }
+    
+    @media (max-width: 480px) {
+      .score-display {
+        grid-template-columns: 1fr;
+      }
+      
+      .actions-enhanced {
+        grid-template-columns: 1fr;
+      }
+      
+      .share-button, .menu-button {
+        flex-direction: row;
+      }
+    }
+  `;
+  document.head.appendChild(style);
 }
 
 function updateHud() {
@@ -1796,15 +2204,25 @@ els.form.addEventListener("submit", async (e) => {
     STATE.faceImg = await loadImage(await circleMaskFallback(dataUrl, 256));
   }
 
+  // Show loading message while processing
+  ctx.fillStyle = "rgba(0,0,0,0.7)";
+  ctx.fillRect(0, 0, STATE.w, STATE.h);
+  ctx.fillStyle = "#fff";
+  ctx.font = `bold ${20 * STATE.dpr}px system-ui`;
+  ctx.textAlign = "center";
+  ctx.fillText("Loading your face...", STATE.w/2, STATE.h/2);
+  
   // Hide the left panel and expand game area
   document.getElementById('gamePanel').classList.add('game-active');
   
   // Resize canvas after panel animation
   setTimeout(() => {
     resizeCanvas();
+    initGame();
+    
+    // Show instructions
+    showMessage("👆 TAP or SPACE to Start!", 3000);
   }, 500);
-  
-  initGame();
 });
 
 els.retry.addEventListener("click", () => {
