@@ -441,6 +441,20 @@
       <div class="stage card" aria-live="polite">
         <canvas id="game" aria-label="Face Flappy Ultimate game canvas"></canvas>
 
+          <!-- Top contrast overlay for readability -->
+  <div style="
+    position:absolute;
+    top:0; left:0; right:0;
+    height:88px;                 /* adjust taller/shorter as needed */
+    background:linear-gradient(
+      rgba(0,0,0,0.55),          /* darker at the very top */
+      rgba(0,0,0,0.00) 70%       /* fade to transparent */
+    );
+    z-index: 5;                  /* above canvas, below HUD clicks */
+    pointer-events:none;         /* don’t block clicks/taps */
+  "></div>
+
+
         <div class="hud" aria-hidden="true">
           <div class="left" id="scoreEl">Score: 0</div>
           <div class="right">
