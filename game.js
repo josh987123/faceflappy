@@ -808,26 +808,10 @@ async function getFaceSprite(file) {
 
 // ---------- Canvas sizing ----------
 function resizeCanvas() {
-  if (!ctx) {
-    ctx = els.canvas.getContext("2d");
-  }
-  const rect = els.canvas.getBoundingClientRect();
-  
-  // Debug logging
-  console.log('Canvas rect:', rect.width, 'x', rect.height);
-  
-  // If canvas has no size, try again
-  if (rect.width === 0 || rect.height === 0) {
-    console.warn('Canvas has no size, retrying...');
-    setTimeout(resizeCanvas, 100);
-    return;
-  }
-  
+  // Fixed dimensions that work well for both mobile and desktop
   STATE.dpr = Math.min(CFG.MAX_DPR, window.devicePixelRatio || 1);
-  STATE.w = Math.max(320, Math.floor(rect.width * STATE.dpr));
-  STATE.h = Math.max(320, Math.floor(rect.height * STATE.dpr));
-  
-  console.log('Canvas sized to:', STATE.w, 'x', STATE.h);
+  STATE.w = 800 * STATE.dpr;  // Fixed width
+  STATE.h = 600 * STATE.dpr;  // Fixed height
   
   els.canvas.width = STATE.w;
   els.canvas.height = STATE.h;
@@ -2631,11 +2615,11 @@ setTimeout(() => {
   } else {
     // If still no size, try again
     setTimeout(() => {
-      resizeCanvas();
-      initGame();
-      showMessage("👆 TAP or SPACE to Start!", 3000);
-      els.form.style.pointerEvents = 'auto';
-    }, 500);
+  resizeCanvas();  // Now uses fixed dimensions
+  initGame();
+  showMessage("👆 TAP or SPACE to Start!", 3000);
+  els.form.style.pointerEvents = 'auto';
+}, 500);
   }
 }, 700); // Wait for CSS transition
 });
