@@ -2606,55 +2606,38 @@ els.form.addEventListener("submit", async (e) => {
 // Show loading message
 showMessage("Loading your face...", 3000);
   
-  // Hide the left panel and expand game area
-  document.getElementById('gamePanel').classList.add('game-active');
-
-   els.form.style.pointerEvents = 'none'; // Prevent double-submission
-
 // Hide the left panel and expand game area
 document.getElementById('gamePanel').classList.add('game-active');
+els.form.style.pointerEvents = 'none'; // Prevent double-submission
+
+// Force the browser to recalculate layout
+els.form.offsetHeight; // This forces a reflow
 
 // Wait for CSS transition to complete
 setTimeout(() => {
   // Force refresh canvas reference
   els.canvas = document.getElementById("game");
-  
-  resizeCanvas();  // This will now properly size the canvas
-  
-  // Small delay to ensure canvas is ready
-  setTimeout(() => {
-    initGame();    // This also calls resizeCanvas
-    showMessage("👆 TAP or SPACE to Start!", 3000);
-    els.form.style.pointerEvents = 'auto'; // Re-enable
-  }, 100);
-}, 600); // Increased to 600ms to ensure CSS transition completes
-});
-
-els.retry.addEventListener("click", () => {
-  STATE.stats.retryCount++;
-  checkAchievements();
-  hideOverlay();
-  initGame();
-  setTimeout(() => startGame(), 500);
-});
-
-els.share.addEventListener("click", async () => {
-  STATE.stats.shareCount++;
-  checkAchievements();
-  
-  const emoji = STATE.score > 50 ? "🔥🔥🔥" : 
-                STATE.score > 25 ? "⭐⭐" : 
-                STATE.score > 10 ? "⭐" : "🎮";
-  const skinText = STATE.player.skin !== 'classic' ? ` using ${SKINS[STATE.player.skin].name} skin` : '';
-  const text = `${emoji} ${STATE.name} scored ${STATE.score} on Face Flappy${skinText}! Can you beat it? 🦅`;
-  
-  try {
-    await navigator.clipboard.writeText(text);
-    els.share.textContent = "Copied!";
-    setTimeout(() => (els.share.textContent = "Share Score"), 1200);
-  } catch {
-    prompt("Copy your score:", text);
+  if (typeof ctx !== 'undefined') {
+    ctx = els.canvas.getContext("2d");
   }
+  
+  resizeCanvas();
+  
+  // Check if canvas has valid dimensions
+  if (STATE.w > 0 && STATE.h > 0) {
+    initGame();
+    showMessage("👆 TAP or SPACE to Start!", 3000);
+    els.form.style.pointerEvents = 'auto';
+  } else {
+    // If still no size, try again
+    setTimeout(() => {
+      resizeCanvas();
+      initGame();
+      showMessage("👆 TAP or SPACE to Start!", 3000);
+      els.form.style.pointerEvents = 'auto';
+    }, 500);
+  }
+}, 700); // Wait for CSS transition
 });
 
 // ---------- Boot ----------
