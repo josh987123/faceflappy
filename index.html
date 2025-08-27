@@ -268,9 +268,17 @@
       to { transform: translateX(0); }
     }
 
-    footer { margin-top:18px; color:var(--muted); font-size:12px; }
-    .hero-copy { margin-bottom:10px; }
-    .hidden { display:none !important; }
+    footer.protips {
+  margin: 16px auto 0;   /* some space above */
+  padding: 12px 16px;    /* nice inner padding */
+  max-width: 800px;      /* keeps text from stretching super wide */
+  border-radius: 12px;
+  background: rgba(79,124,255,0.06);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
     
     /* Controls legend */
     .controls {
@@ -295,24 +303,65 @@
       font-family: monospace;
       font-weight: bold;
     }
+
+
+
+.hero-header {
+  background: linear-gradient(135deg, #4f7cff15, #4f7cff05);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 18px;
+  text-align: center;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.05);
+}
+.hero-header h1 {
+  margin: 0;
+  font-size: clamp(26px, 3vw, 36px);
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  position: relative;
+  display: inline-block;
+}
+.hero-header h1::after {
+  content: "🪽"; /* little feather/wing icon */
+  position: absolute;
+  right: -28px;
+  top: 0;
+  font-size: 22px;
+  opacity: 0.8;
+}
+.hero-header .sub {
+  margin-top: 6px;
+  font-size: 15px;
+  color: var(--muted);
+}
+.hero-copy {
+  margin-top: 12px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #333;
+}
+
+
+    
   </style>
 </head>
 <body>
   <div class="wrap">
-    <header>
-      <div>
-        <h1>Face Flappy <span class="version">ULTIMATE</span></h1>
-        <div class="sub">Now with power-ups, skins & achievements!</div>
-      </div>
-    </header>
+    <div class="hero-header">
+  <h1>Face Flappy <span class="version">ULTIMATE</span></h1>
+  <div class="sub">Now with power-ups, skins & achievements!</div>
+  <div class="hero-copy">
+    Face Flappy Ultimate is the enhanced version where <em>you</em> are the hero!  
+    Upload a photo, unlock skins, collect power-ups, and beat daily challenges.
+  </div>
+</div>
 
-    <div class="panel" id="gamePanel">
-      <!-- Left: Landing + Form -->
-      <div class="card left-panel" id="leftPanel">
-        <div class="hero-copy" style="color:var(--muted)">
-          Face Flappy Ultimate is the enhanced version where <em>you</em> are the hero!
-          Upload a photo, unlock skins, collect power-ups, and beat daily challenges.
-        </div>
+<div class="panel" id="gamePanel">
+  <!-- Left: Landing + Form -->
+  <div class="card left-panel" id="leftPanel">
+
 
         <form id="setupForm" autocomplete="off">
           <label for="playerName">Your name</label>
@@ -413,12 +462,11 @@
       </div>
     </div>
 
-    <footer class="wrap" style="margin:10px 0 32px;">
-      <div class="muted">
-        💡 Pro tips: Collect power-ups for special abilities! Score milestones unlock new skins. 
-        Complete daily challenges for bonus rewards. Build streaks by playing daily!
-      </div>
-    </footer>
+<footer class="protips">
+  💡 Pro tips: Collect power-ups for special abilities! Score milestones unlock new skins. 
+  Complete daily challenges for bonus rewards. Build streaks by playing daily!
+</footer>
+
   </div>
   
   <!-- Achievement toast notification -->
