@@ -25,6 +25,13 @@
   margin: 0;
   overflow: hidden; /* stops inner page scrolling */
 }
+
+.wrap,
+.panel {
+  height: 100%;   /* allow .stage to actually fill */
+}
+
+    
     body {
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
       color:var(--ink);
@@ -180,13 +187,12 @@
 .stage {
   position: relative;
   height: 100%;       /* fill iframe height */
-  max-height: 100%;   /* don’t exceed parent */
-  min-height: 0;      /* allow shrinking */
   border-radius: 16px;
   overflow: hidden;
   border: 1px solid var(--border);
   transition: all 0.5s ease;
 }
+
 
     canvas#game { width:100%; height:100%; display:block; background:linear-gradient(#92d7ff,#e4f6ff); cursor: pointer; }
     
