@@ -593,22 +593,96 @@ function drawLeaderboard(ctx) {
   ctx.restore();
 }
 
-// ---------- Sound System (Ready for implementation) ----------
-const SOUNDS = {
-  flap: null,      // Add: new Audio('sounds/flap.mp3')
-  score: null,     // Add: new Audio('sounds/score.mp3')
-  perfect: null,   // Add: new Audio('sounds/perfect.mp3')
-  powerup: null,   // Add: new Audio('sounds/powerup.mp3')
-  crash: null,     // Add: new Audio('sounds/crash.mp3')
-  achievement: null, // Add: new Audio('sounds/achievement.mp3')
-  combo: null,     // Add: new Audio('sounds/combo.mp3')
-};
+// ---------- Sound System ----------
+const SOUNDS = {};
+let soundEnabled = true;
+
+// Initialize sounds - using web-friendly sound URLs
+function initSounds() {
+  // Option 1: Use free sound CDN URLs (these are example URLs - replace with actual sound URLs)
+  const soundUrls = {
+    flap: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
+    score: 'https://www.soundjay.com/misc/sounds/button-09.wav',
+    perfect: 'https://www.soundjay.com/misc/sounds/button-10.wav',
+    powerup: 'https://www.soundjay.com/misc/sounds/button-3.wav',
+    crash: 'https://www.soundjay.com/misc/sounds/button-10.wav',
+    achievement: 'https://www.soundjay.com/misc/sounds/bell-ringing-01.wav',
+    combo: 'https://www.soundjay.com/misc/sounds/button-09.wav'
+  };
+  
+  // Option 2: Create synthetic sounds using Web Audio API (no files needed!)
+  createSyntheticSounds();
+}
+
+// Create sounds programmatically using Web Audio API
+function createSyntheticSounds() {
+  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  
+  // Helper function to create a beep sound
+  function createBeep(frequency, duration, type = 'sine') {
+    return () => {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = frequency;
+      oscillator.type = type;
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + duration);
+    };
+  }
+  
+  // Create different sounds with different frequencies
+  SOUNDS.flap = createBeep(400, 0.1, 'square');
+  SOUNDS.score = createBeep(523, 0.15, 'sine'); // C note
+  SOUNDS.perfect = function() {
+    createBeep(523, 0.1)(); // C
+    setTimeout(() => createBeep(659, 0.1)(), 100); // E
+    setTimeout(() => createBeep(784, 0.2)(), 200); // G
+  };
+  SOUNDS.powerup = function() {
+    createBeep(440, 0.1)(); // A
+    setTimeout(() => createBeep(554, 0.1)(), 100); // C#
+    setTimeout(() => createBeep(659, 0.15)(), 200); // E
+  };
+  SOUNDS.crash = createBeep(150, 0.3, 'sawtooth');
+  SOUNDS.achievement = function() {
+    createBeep(523, 0.1)(); // C
+    setTimeout(() => createBeep(587, 0.1)(), 100); // D
+    setTimeout(() => createBeep(659, 0.1)(), 200); // E
+    setTimeout(() => createBeep(784, 0.3)(), 300); // G
+  };
+  SOUNDS.combo = createBeep(880, 0.2, 'sine'); // A high
+  SOUNDS.start = createBeep(440, 0.15, 'sine');
+}
 
 function playSound(name) {
-  if (SOUNDS[name]) {
-    SOUNDS[name].currentTime = 0;
-    SOUNDS[name].play().catch(() => {});
+  if (!soundEnabled) return;
+  
+  try {
+    if (SOUNDS[name]) {
+      if (typeof SOUNDS[name] === 'function') {
+        SOUNDS[name]();
+      } else if (SOUNDS[name].play) {
+        SOUNDS[name].currentTime = 0;
+        SOUNDS[name].play().catch(() => {});
+      }
+    }
+  } catch (e) {
+    console.log('Sound play failed:', e);
   }
+}
+
+// Toggle sound on/off
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  return soundEnabled;
 }
 
 // ---------- Storage System ----------
@@ -2154,6 +2228,12 @@ window.addEventListener("keydown", (e) => {
     }
   }
   
+  // Sound toggle (M for mute)
+  if (e.key === "m" || e.key === "M") {
+    const enabled = toggleSound();
+    showMessage(enabled ? "🔊 Sound ON" : "🔇 Sound OFF", 1000);
+  }
+  
   // Skin selection (1-9 keys)
   if (e.key >= '1' && e.key <= '9') {
     const skinIndex = parseInt(e.key) - 1;
@@ -2256,6 +2336,7 @@ els.share.addEventListener("click", async () => {
 function boot() {
   resizeCanvas();
   loadStats();
+  initSounds(); // Initialize the sound system
   
   ctx.font = `${16 * STATE.dpr}px system-ui`;
   ctx.fillStyle = "#223";
