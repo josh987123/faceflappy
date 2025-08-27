@@ -267,7 +267,7 @@ const STATE = {
   ],
 };
 
-const ctx = els.canvas.getContext("2d");
+let ctx = null; // Will be initialized later
 
 // ---------- Achievement & Unlock System ----------
 function checkAchievements() {
@@ -808,10 +808,27 @@ async function getFaceSprite(file) {
 
 // ---------- Canvas sizing ----------
 function resizeCanvas() {
+  if (!ctx) {
+    ctx = els.canvas.getContext("2d");
+  }
   const rect = els.canvas.getBoundingClientRect();
+  
+  // Debug logging
+  console.log('Canvas rect:', rect.width, 'x', rect.height);
+  
+  // If canvas has no size, try again
+  if (rect.width === 0 || rect.height === 0) {
+    console.warn('Canvas has no size, retrying...');
+    setTimeout(resizeCanvas, 100);
+    return;
+  }
+  
   STATE.dpr = Math.min(CFG.MAX_DPR, window.devicePixelRatio || 1);
   STATE.w = Math.max(320, Math.floor(rect.width * STATE.dpr));
   STATE.h = Math.max(320, Math.floor(rect.height * STATE.dpr));
+  
+  console.log('Canvas sized to:', STATE.w, 'x', STATE.h);
+  
   els.canvas.width = STATE.w;
   els.canvas.height = STATE.h;
   ctx.imageSmoothingEnabled = true;
@@ -2593,14 +2610,24 @@ showMessage("Loading your face...", 3000);
   document.getElementById('gamePanel').classList.add('game-active');
 
    els.form.style.pointerEvents = 'none'; // Prevent double-submission
-  // Resize canvas after panel animation
+
+// Hide the left panel and expand game area
+document.getElementById('gamePanel').classList.add('game-active');
+
+// Wait for CSS transition to complete
+setTimeout(() => {
+  // Force refresh canvas reference
+  els.canvas = document.getElementById("game");
+  
+  resizeCanvas();  // This will now properly size the canvas
+  
+  // Small delay to ensure canvas is ready
   setTimeout(() => {
-  resizeCanvas();  // Canvas sizing first
-  setTimeout(() => {
-    initGame();    // Then initialize game (which also calls resizeCanvas now)
+    initGame();    // This also calls resizeCanvas
     showMessage("👆 TAP or SPACE to Start!", 3000);
+    els.form.style.pointerEvents = 'auto'; // Re-enable
   }, 100);
-}, 500);
+}, 600); // Increased to 600ms to ensure CSS transition completes
 });
 
 els.retry.addEventListener("click", () => {
