@@ -43,13 +43,16 @@
     }
     h1 { margin:0; font-size: clamp(20px, 2.5vw, 28px); letter-spacing:.2px; }
     .sub { color:var(--muted); margin-top:4px; font-size: 14px; }
-    .version { 
-      background: linear-gradient(45deg, var(--gold), #ffed4e);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      font-weight: bold;
-      font-size: 12px;
-    }
+    .version {
+  background: linear-gradient(45deg, #ffd700, #ffed4e); /* shiny gold */
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 900;
+  font-size: 14px;
+  margin-left: 6px;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5); /* helps gradient pop */
+}
+
 
     .panel { 
       display:grid; 
@@ -320,9 +323,10 @@
   font-size: clamp(26px, 3vw, 36px);
   font-weight: 800;
   letter-spacing: 0.5px;
-  position: relative;
-  display: inline-block;
+  color: #222; /* darker heading text */
+  text-shadow: 0 1px 4px rgba(255,255,255,0.6); /* subtle glow */
 }
+
 .hero-header h1::after {
   content: "🪽"; /* little feather/wing icon */
   position: absolute;
@@ -441,18 +445,7 @@
       <div class="stage card" aria-live="polite">
         <canvas id="game" aria-label="Face Flappy Ultimate game canvas"></canvas>
 
-          <!-- Top contrast overlay for readability -->
-  <div style="
-    position:absolute;
-    top:0; left:0; right:0;
-    height:88px;                 /* adjust taller/shorter as needed */
-    background:linear-gradient(
-      rgba(0,0,0,0.55),          /* darker at the very top */
-      rgba(0,0,0,0.00) 70%       /* fade to transparent */
-    );
-    z-index: 5;                  /* above canvas, below HUD clicks */
-    pointer-events:none;         /* don’t block clicks/taps */
-  "></div>
+
 
 
         <div class="hud" aria-hidden="true">
