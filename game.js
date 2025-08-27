@@ -1,0 +1,478 @@
+/* Face Flappy — front-end logic
+   - Upload → background removal via /api/removebg → fallback circle mask
+   - Canvas game loop with gravity, flap, pipes, collisions, score + best
+   - Responsive, DPR-aware, touch + keyboard input
+*/
+
+const els = {
+  form: document.getElementById("setupForm"),
+  name: document.getElementById("playerName"),
+  photo: document.getElementById("photo"),
+  canvas: document.getElementById("game"),
+  score: document.getElementById("scoreEl"),
+  nameHud: document.getElementById("nameEl"),
+  bestHud: document.getElementById("bestEl"),
+  over: document.getElementById("gameOver"),
+  overMsg: document.getElementById("gameOverMsg"),
+  retry: document.getElementById("retryBtn"),
+  share: document.getElementById("shareBtn"),
+};
+
+const CFG = {
+  GRAVITY: 2200,       // px/s^2
+  FLAP: 640,           // px/s impulse
+  PIPE_SPEED: 260,     // px/s
+  GAP_MIN: 140,
+  GAP_MAX: 200,
+  PIPE_SPACING: 320,   // px between pipe columns
+  PLAYER_X: 140,
+  FACE_SIZE: 76,
+  BG_SCROLL: 30,
+  FG_SCROLL: 70,
+  MAX_DPR: 2,
+};
+const STATE = {
+  running: false,
+  started: false,
+  paused: false,
+  dpr: 1,
+  w: 0, h: 0,
+  name: "",
+  faceImg: null,       // Image (processed PNG)
+  score: 0,
+  best: 0,
+  pipes: [],           // { x, gapY, passed }
+  nextPipeX: 0,
+  tLast: 0,
+  theme: Math.random() < 0.5 ? "day" : "evening",
+  player: { x: CFG.PLAYER_X, y: 0, vy: 0, r: (CFG.FACE_SIZE/2) + 2 },
+  bgOffset: 0,
+  fgOffset: 0,
+  quips: [
+    "{name} face-planted into pipe #{n}.",
+    "{name} discovered gravity the hard way.",
+    "Pipe #{n} was not impressed with {name}.",
+    "{name}'s wings called in sick.",
+    "{name} took a scenic route into a pipe."
+  ],
+};
+
+const ctx = els.canvas.getContext("2d");
+
+// ---------- Helpers (Images & API) ----------
+async function fileToDownscaledDataURL(file, max = 512) {
+  const img = await new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = rej;
+      i.src = fr.result;
+    };
+    fr.onerror = rej;
+    fr.readAsDataURL(file);
+  });
+
+  const scale = Math.min(1, max / Math.max(img.width, img.height));
+  const w = Math.max(1, Math.round(img.width * scale));
+  const h = Math.max(1, Math.round(img.height * scale));
+
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const cx = c.getContext("2d");
+  cx.drawImage(img, 0, 0, w, h);
+  return c.toDataURL("image/png");
+}
+
+async function removeBgViaApi(imageDataURL) {
+  const r = await fetch("/api/removebg", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ imageBase64: imageDataURL })
+  });
+  if (!r.ok) throw new Error(await r.text());
+  const { imageBase64 } = await r.json();
+  return imageBase64; // data URL (PNG)
+}
+
+async function circleMaskFallback(imageDataURL, size = 256) {
+  const img = await new Promise((res, rej) => {
+    const i = new Image();
+    i.onload = () => res(i);
+    i.onerror = rej;
+    i.src = imageDataURL;
+  });
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  const cx = c.getContext("2d");
+  cx.clearRect(0,0,size,size);
+  cx.save();
+  cx.beginPath();
+  cx.arc(size/2, size/2, size/2, 0, Math.PI*2);
+  cx.closePath();
+  cx.clip();
+  // cover-fit
+  const scale = Math.max(size / img.width, size / img.height);
+  const w = img.width * scale, h = img.height * scale;
+  cx.drawImage(img, (size - w)/2, (size - h)/2, w, h);
+  cx.restore();
+  return c.toDataURL("image/png");
+}
+
+async function stylizeFace(dataUrl) {
+  // Light pixelation: draw small then scale up (quick & consistent look)
+  const src = await loadImage(dataUrl);
+  const small = document.createElement("canvas");
+  const factor = 0.4; // 40% size, tweak for more/less pixelation
+  small.width = Math.max(16, Math.round(src.width * factor));
+  small.height = Math.max(16, Math.round(src.height * factor));
+  const sctx = small.getContext("2d");
+  sctx.imageSmoothingEnabled = false;
+  sctx.drawImage(src, 0, 0, small.width, small.height);
+
+  const out = document.createElement("canvas");
+  out.width = src.width; out.height = src.height;
+  const octx = out.getContext("2d");
+  octx.imageSmoothingEnabled = false;
+  octx.drawImage(small, 0, 0, small.width, small.height, 0, 0, out.width, out.height);
+  return out.toDataURL("image/png");
+}
+
+function loadImage(dataUrl) {
+  return new Promise((res, rej) => {
+    const i = new Image();
+    i.onload = () => res(i);
+    i.onerror = rej;
+    i.src = dataUrl;
+  });
+}
+
+async function getFaceSprite(file) {
+  const dataUrl = await fileToDownscaledDataURL(file, 512);
+  try {
+    const cut = await removeBgViaApi(dataUrl);
+    const stylized = await stylizeFace(cut);
+    return await loadImage(stylized);
+  } catch (e) {
+    console.warn("remove.bg failed, using circle fallback:", e);
+    const fallback = await circleMaskFallback(dataUrl, 256);
+    const stylized = await stylizeFace(fallback);
+    return await loadImage(stylized);
+  }
+}
+
+// ---------- Canvas sizing ----------
+function resizeCanvas() {
+  const rect = els.canvas.getBoundingClientRect();
+  STATE.dpr = Math.min(CFG.MAX_DPR, window.devicePixelRatio || 1);
+  STATE.w = Math.max(320, Math.floor(rect.width * STATE.dpr));
+  STATE.h = Math.max(320, Math.floor(rect.height * STATE.dpr));
+  els.canvas.width = STATE.w;
+  els.canvas.height = STATE.h;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+}
+window.addEventListener("resize", resizeCanvas, { passive: true });
+
+// ---------- Pipes ----------
+function resetPipes() {
+  STATE.pipes = [];
+  STATE.nextPipeX = STATE.w + 200 * STATE.dpr;
+  // seed a few pipes off-screen to the right
+  for (let i = 0; i < 4; i++) {
+    addPipe();
+  }
+}
+function addPipe() {
+  const gap = rand(CFG.GAP_MIN, CFG.GAP_MAX) * STATE.dpr;
+  const topMargin = 40 * STATE.dpr, bottomMargin = 60 * STATE.dpr;
+  const gapY = rand(topMargin + gap/2, STATE.h - bottomMargin - gap/2);
+  const x = (STATE.pipes.length ? STATE.pipes[STATE.pipes.length - 1].x + CFG.PIPE_SPACING * STATE.dpr
+                                : STATE.w + 200 * STATE.dpr);
+  STATE.pipes.push({ x, gapY, passed: false });
+}
+
+function rand(a, b) { return a + Math.random() * (b - a); }
+
+// ---------- Game control ----------
+function initGame() {
+  STATE.running = false;
+  STATE.started = false;
+  STATE.score = 0;
+  STATE.bgOffset = 0;
+  STATE.fgOffset = 0;
+  STATE.player.y = STATE.h / 2;
+  STATE.player.vy = 0;
+  resetPipes();
+  updateHud();
+  hideOverlay();
+  drawFrame(0); // show first frame
+}
+
+function startGame() {
+  if (STATE.running) return;
+  STATE.running = true;
+  STATE.started = true;
+  STATE.tLast = performance.now();
+  requestAnimationFrame(loop);
+}
+
+function gameOver(pipeIndex) {
+  STATE.running = false;
+  const n = Math.max(1, pipeIndex + 1);
+  const msgTpl = STATE.quips[Math.floor(Math.random() * STATE.quips.length)];
+  const msg = msgTpl.replaceAll("{name}", STATE.name).replaceAll("{n}", n.toString());
+  els.overMsg.textContent = msg + ` Score: ${STATE.score}.`;
+  // best per name
+  const key = `ff_best_${STATE.name.trim().toLowerCase() || "player"}`;
+  STATE.best = Math.max(STATE.best, STATE.score);
+  localStorage.setItem(key, String(STATE.best));
+  updateHud();
+  showOverlay();
+}
+
+function updateHud() {
+  els.score.textContent = `Score: ${STATE.score}`;
+  els.nameHud.textContent = `Player: ${STATE.name || "–"}`;
+  els.bestHud.textContent = `Best: ${STATE.best || 0}`;
+}
+
+function showOverlay() { els.over.classList.add("show"); }
+function hideOverlay() { els.over.classList.remove("show"); }
+
+// ---------- Loop ----------
+function loop(t) {
+  if (!STATE.running) return;
+  const dt = Math.min(0.033, (t - STATE.tLast) / 1000 || 0.016); // clamp ~30 FPS min
+  STATE.tLast = t;
+  update(dt);
+  drawFrame(dt);
+  requestAnimationFrame(loop);
+}
+
+function update(dt) {
+  // parallax
+  STATE.bgOffset = (STATE.bgOffset + CFG.BG_SCROLL * STATE.dpr * dt) % STATE.w;
+  STATE.fgOffset = (STATE.fgOffset + CFG.FG_SCROLL * STATE.dpr * dt) % STATE.w;
+
+  // player physics
+  STATE.player.vy += CFG.GRAVITY * dt * STATE.dpr;
+  STATE.player.y += STATE.player.vy * dt;
+
+  // ground/ceiling
+  if (STATE.player.y - STATE.player.r < 0) {
+    STATE.player.y = STATE.player.r;
+    STATE.player.vy = 0;
+  }
+  if (STATE.player.y + STATE.player.r > STATE.h) {
+    STATE.player.y = STATE.h - STATE.player.r;
+    return gameOver(STATE.score); // treat as crash
+  }
+
+  // pipes: move left, spawn, score, collide
+  for (let i = 0; i < STATE.pipes.length; i++) {
+    const p = STATE.pipes[i];
+    p.x -= CFG.PIPE_SPEED * STATE.dpr * dt;
+
+    // score when passing
+    if (!p.passed && p.x + 60 * STATE.dpr < STATE.player.x) {
+      p.passed = true;
+      STATE.score++;
+      updateHud();
+    }
+
+    // collision
+    const halfPipeW = 40 * STATE.dpr;
+    const inX = Math.abs(STATE.player.x - (p.x + halfPipeW)) < (halfPipeW + STATE.player.r);
+    if (inX) {
+      // top and bottom rectangles; gap center at p.gapY
+      const gapHalf = Math.max(CFG.GAP_MIN, Math.min(CFG.GAP_MAX, (CFG.GAP_MIN + CFG.GAP_MAX) / 2)) * STATE.dpr / 2;
+      const topRect = { x: p.x, y: 0, w: halfPipeW * 2, h: p.gapY - gapHalf };
+      const botRect = { x: p.x, y: p.gapY + gapHalf, w: halfPipeW * 2, h: STATE.h - (p.gapY + gapHalf) };
+      if (circleRectCollide(STATE.player.x, STATE.player.y, STATE.player.r, topRect)
+       || circleRectCollide(STATE.player.x, STATE.player.y, STATE.player.r, botRect)) {
+        return gameOver(i);
+      }
+    }
+  }
+
+  // add new pipe and remove offscreen ones
+  const last = STATE.pipes[STATE.pipes.length - 1];
+  if (last && last.x < STATE.w - CFG.PIPE_SPACING * STATE.dpr) addPipe();
+  while (STATE.pipes.length && STATE.pipes[0].x < -100 * STATE.dpr) STATE.pipes.shift();
+}
+
+function circleRectCollide(cx, cy, r, rect) {
+  const nearestX = Math.max(rect.x, Math.min(cx, rect.x + rect.w));
+  const nearestY = Math.max(rect.y, Math.min(cy, rect.y + rect.h));
+  const dx = cx - nearestX, dy = cy - nearestY;
+  return (dx*dx + dy*dy) <= r*r;
+}
+
+// ---------- Render ----------
+function drawFrame(dt) {
+  const { w, h } = STATE;
+  ctx.clearRect(0,0,w,h);
+
+  // Sky background gradient (day/evening)
+  const g = ctx.createLinearGradient(0, 0, 0, h);
+  if (STATE.theme === "day") {
+    g.addColorStop(0, "#92d7ff");
+    g.addColorStop(1, "#e4f6ff");
+  } else {
+    g.addColorStop(0, "#6aa0ff");
+    g.addColorStop(1, "#dfe9ff");
+  }
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,w,h);
+
+  // Distant clouds (parallax)
+  ctx.save();
+  ctx.translate(-STATE.bgOffset, 0);
+  drawCloudBand(40 * STATE.dpr, 0.6);
+  ctx.translate(w, 0);
+  drawCloudBand(40 * STATE.dpr, 0.6);
+  ctx.restore();
+
+  // Pipes
+  ctx.fillStyle = "#3cb371"; // green pipes
+  ctx.strokeStyle = "rgba(0,0,0,.2)";
+  ctx.lineWidth = 2 * STATE.dpr;
+  const halfPipeW = 40 * STATE.dpr;
+  const gapHalf = ((CFG.GAP_MIN + CFG.GAP_MAX)/2) * STATE.dpr / 2;
+  for (const p of STATE.pipes) {
+    // top
+    const topH = p.gapY - gapHalf;
+    roundRect(ctx, p.x, 0, halfPipeW*2, topH, 8*STATE.dpr, true, true);
+    // bottom
+    const botY = p.gapY + gapHalf;
+    const botH = h - botY;
+    roundRect(ctx, p.x, botY, halfPipeW*2, botH, 8*STATE.dpr, true, true);
+  }
+
+  // Foreground ground band (parallax 2)
+  ctx.save();
+  ctx.translate(-STATE.fgOffset, 0);
+  ctx.fillStyle = "#d7f3d7";
+  ctx.fillRect(0, h - 24*STATE.dpr, w, 24*STATE.dpr);
+  ctx.fillRect(w, h - 24*STATE.dpr, w, 24*STATE.dpr);
+  ctx.restore();
+
+  // Player (face on a simple “body” disk + tiny wing stubs)
+  const px = STATE.player.x, py = STATE.player.y, r = STATE.player.r;
+  // body disk
+  ctx.fillStyle = "#ffd84d";
+  ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI*2); ctx.fill();
+  // wings
+  ctx.fillStyle = "#ffe99a";
+  const flap = Math.sin(performance.now()/90) * (6*STATE.dpr);
+  ctx.beginPath();
+  ctx.ellipse(px - r/2, py + flap/3, r/2.3, r/3, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // face (centered)
+  if (STATE.faceImg) {
+    const size = CFG.FACE_SIZE * STATE.dpr;
+    ctx.save();
+    ctx.beginPath(); ctx.arc(px, py, r - 4*STATE.dpr, 0, Math.PI*2); ctx.clip();
+    ctx.drawImage(STATE.faceImg, px - size/2, py - size/2, size, size);
+    ctx.restore();
+  }
+}
+
+function drawCloudBand(y, opacity=0.6) {
+  const { w } = STATE;
+  ctx.globalAlpha = opacity;
+  ctx.fillStyle = "rgba(255,255,255,.9)";
+  for (let x = 0; x < w * 2; x += 180 * STATE.dpr) {
+    ctx.beginPath();
+    ctx.ellipse(x + 40*STATE.dpr, y + 16*STATE.dpr, 50*STATE.dpr, 22*STATE.dpr, 0, 0, Math.PI*2);
+    ctx.ellipse(x + 80*STATE.dpr, y + 10*STATE.dpr, 38*STATE.dpr, 18*STATE.dpr, 0, 0, Math.PI*2);
+    ctx.ellipse(x + 120*STATE.dpr, y + 20*STATE.dpr, 44*STATE.dpr, 20*STATE.dpr, 0, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function roundRect(c, x, y, w, h, r, fill=true, stroke=false) {
+  if (w <= 0 || h <= 0) return;
+  c.beginPath();
+  c.moveTo(x+r, y);
+  c.arcTo(x+w, y, x+w, y+h, r);
+  c.arcTo(x+w, y+h, x, y+h, r);
+  c.arcTo(x, y+h, x, y, r);
+  c.arcTo(x, y, x+w, y, r);
+  c.closePath();
+  if (fill) c.fill();
+  if (stroke) c.stroke();
+}
+
+// ---------- Input ----------
+function flap() {
+  if (!STATE.started) startGame();
+  STATE.player.vy = -CFG.FLAP * STATE.dpr;
+}
+window.addEventListener("keydown", (e) => {
+  if (e.code === "Space" || e.key === " ") {
+    e.preventDefault();
+    flap();
+  }
+});
+els.canvas.addEventListener("pointerdown", flap, { passive: true });
+
+// ---------- Form / Share / Retry ----------
+els.form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const name = (els.name.value || "").trim();
+  const file = els.photo.files && els.photo.files[0];
+  if (!name || !file) return;
+
+  // Load best score for this name
+  const key = `ff_best_${name.toLowerCase()}`;
+  STATE.best = parseInt(localStorage.getItem(key) || "0", 10) || 0;
+  STATE.name = name;
+  updateHud();
+
+  // Process face image (API + fallback)
+  try {
+    els.over.classList.remove("show");
+    els.score.textContent = "Score: 0";
+    els.nameHud.textContent = `Player: ${STATE.name}`;
+    STATE.faceImg = await getFaceSprite(file);
+  } catch (err) {
+    console.error("Face processing failed:", err);
+    alert("We had trouble processing your photo. We’ll try a basic circle crop.");
+    const dataUrl = await fileToDownscaledDataURL(file, 512);
+    STATE.faceImg = await loadImage(await circleMaskFallback(dataUrl, 256));
+  }
+
+  initGame();
+});
+
+els.retry.addEventListener("click", () => {
+  hideOverlay();
+  initGame();
+  startGame();
+});
+
+els.share.addEventListener("click", async () => {
+  const text = `${STATE.name} scored ${STATE.score} on Face Flappy!`;
+  try {
+    await navigator.clipboard.writeText(text);
+    els.share.textContent = "Copied!";
+    setTimeout(() => (els.share.textContent = "Copy Score"), 1200);
+  } catch {
+    prompt("Copy your score:", text);
+  }
+});
+
+// ---------- Boot ----------
+function boot() {
+  resizeCanvas();
+  // Idle “start state” display
+  ctx.font = `${16 * STATE.dpr}px system-ui, -apple-system, Segoe UI, Roboto, Arial`;
+  ctx.fillStyle = "#223";
+  ctx.textAlign = "center";
+  ctx.fillText("Upload your face & name, then press Play.", STATE.w/2, STATE.h/2);
+}
+boot();
