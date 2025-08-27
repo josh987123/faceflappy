@@ -269,6 +269,14 @@ const STATE = {
 
 let ctx = null; // Will be initialized later
 
+// Initialize context function
+function initializeContext() {
+  if (!ctx && els.canvas) {
+    ctx = els.canvas.getContext("2d");
+  }
+}
+
+
 // ---------- Achievement & Unlock System ----------
 function checkAchievements() {
   const a = STATE.stats;
@@ -808,6 +816,8 @@ async function getFaceSprite(file) {
 
 // ---------- Canvas sizing ----------
 function resizeCanvas() {
+ initializeContext(); // ADD THIS LINE
+   
   // Fixed dimensions that work well for both mobile and desktop
   STATE.dpr = Math.min(CFG.MAX_DPR, window.devicePixelRatio || 1);
   STATE.w = 800 * STATE.dpr;  // Fixed width
@@ -2601,9 +2611,7 @@ els.form.offsetHeight; // This forces a reflow
 setTimeout(() => {
   // Force refresh canvas reference
   els.canvas = document.getElementById("game");
-  if (typeof ctx !== 'undefined') {
-    ctx = els.canvas.getContext("2d");
-  }
+  ctx = els.canvas.getContext("2d"); // REMOVE the if statement, just set ctx directly
   
   resizeCanvas();
   
@@ -2626,12 +2634,13 @@ setTimeout(() => {
 
 // ---------- Boot ----------
 function boot() {
+  // Initialize context first
+  ctx = els.canvas.getContext("2d");
+  
   resizeCanvas();
   loadStats();
-  loadSoundPreference(); // Load saved sound preference
-  initSounds(); // Initialize the sound system
-  
-
+  loadSoundPreference();
+  initSounds();
   
   // Show version
   ctx.font = `${10 * STATE.dpr}px system-ui`;
