@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Face Flappy Ultimate — Upload your face, unlock skins, beat challenges!</title>
   <meta name="description" content="Face Flappy Ultimate - The enhanced version with power-ups, skins, achievements, and daily challenges! Upload your photo and become the ultimate flapper." />
   <meta name="theme-color" content="#4f7cff" />
@@ -19,106 +19,280 @@
       --bg1:#eaf0ff; --bg2:#f8fbff; --border:rgba(0,0,0,.06);
       --gold:#ffd700; --achievement:#9c27b0;
     }
-    * { box-sizing:border-box }
+    * { box-sizing:border-box; }
+    
+    /* CRITICAL MOBILE FIX: Use viewport units for responsive sizing */
     html, body {
-  height: 100%;
-  margin: 0;
-  overflow: hidden; /* stops inner page scrolling */
-}
-
-.wrap,
-.panel {
-  height: 100%;   /* allow .stage to actually fill */
-}
-
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      position: relative;
+    }
     
     body {
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
       color:var(--ink);
       background:linear-gradient(180deg, var(--bg1), var(--bg2));
+      display: flex;
+      flex-direction: column;
     }
 
-    /* EXPANDED LAYOUT - fills more space */
-    .wrap { 
-      max-width: 1400px; /* Increased from 1000px */
-      margin: 10px auto 20px; /* Reduced margins */
-      padding: 0 12px; 
+    /* MOBILE-FIRST APPROACH */
+    .game-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      position: relative;
     }
 
-    header { 
-      display:flex; 
-      align-items:flex-start; 
-      justify-content:space-between; 
-      gap:12px; 
-      margin-bottom:12px; /* Reduced from 16px */
-    }
-    h1 { margin:0; font-size: clamp(20px, 2.5vw, 28px); letter-spacing:.2px; }
-    .sub { color:var(--muted); margin-top:4px; font-size: 14px; }
-    
-
-
-.panel {
-  display: flex;
-  flex-direction: row;
-  height: 100%;           /* fill iframe height */
-  gap: 16px;
-  transition: all 0.5s ease;
-}
-
-    .left-panel {
-  flex: 0 0 380px;        /* fixed width column */
-  overflow-y: auto;       /* scrolls independently if too tall */
-}
-
-    
-    /* When game is active, hide left panel and make game full width */
-    .panel.game-active {
-      grid-template-columns: 0fr 1fr;
-      gap: 0;
+    /* Header area for mobile */
+    .mobile-header {
+      display: none;
+      padding: 10px;
+      background: rgba(255,255,255,0.95);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
     }
     
-    .panel.game-active .left-panel {
-      opacity: 0;
-      overflow: hidden;
-      pointer-events: none;
-      padding: 0;
+    .mobile-header h1 {
       margin: 0;
+      font-size: 18px;
     }
     
-    @media (max-width: 980px) { 
-      .panel { 
-        grid-template-columns: 340px 1fr; /* Slightly smaller on medium screens */
-      }
-      .panel.game-active {
-        grid-template-columns: 0fr 1fr;
-      }
-    }
-    @media (max-width: 768px) { 
-      .panel { 
-        grid-template-columns: 1fr; /* Stack on mobile */
-      }
-      .panel.game-active .left-panel {
-        display: none; /* Completely hide on mobile when active */
-      }
+    .mobile-header .sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
     }
 
-    /* === Flex fix so the game fills leftover space === */
-.wrap {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
+    /* Main content area */
+    .main-content {
+      flex: 1;
+      display: flex;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      position: relative;
+    }
+    
+    /* Setup panel (left side on desktop, full screen on mobile) */
+    .setup-panel {
+      width: 380px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 20px;
+      overflow-y: auto;
+      flex-shrink: 0;
+      transition: transform 0.3s ease;
+    }
+    
+    .setup-panel.hidden {
+      transform: translateX(-100%);
+      position: absolute;
+      pointer-events: none;
+    }
 
-.hero-header {
-  flex: 0 0 auto;  /* header keeps its natural height */
-}
+    /* Game area */
+    .game-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--card);
+      position: relative;
+    }
+    
+    /* Canvas wrapper for proper sizing */
+    .canvas-wrapper {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      flex: 1;
+    }
+    
+    canvas#game { 
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: linear-gradient(#92d7ff,#e4f6ff);
+      cursor: pointer;
+      touch-action: none; /* Prevent default touch behaviors */
+    }
+    
+    /* Mobile-specific styles */
+    @media (max-width: 768px) {
+      .mobile-header {
+        display: block;
+      }
+      
+      .setup-panel {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 100;
+        border-radius: 0;
+      }
+      
+      .setup-panel.hidden {
+        transform: translateX(-100%);
+      }
+      
+      .game-area {
+        width: 100%;
+        height: 100%;
+      }
+      
+      /* Hide desktop-only elements */
+      .protips {
+        display: none;
+      }
+      
+      /* Mobile-optimized form */
+      .setup-panel h2 {
+        font-size: 24px;
+        margin-top: 10px;
+      }
+      
+      label {
+        font-size: 14px;
+      }
+      
+      input[type="text"], input[type="file"] {
+        font-size: 16px; /* Prevents zoom on iOS */
+        padding: 12px;
+      }
+      
+      button {
+        font-size: 16px;
+        padding: 12px 16px;
+        min-height: 44px; /* iOS touch target size */
+      }
+      
+      .character-select {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+      
+      .character-option {
+        padding: 10px;
+      }
+      
+      .character-icon {
+        font-size: 28px;
+      }
+      
+      /* Mobile-friendly features list */
+      .features {
+        gap: 6px;
+      }
+      
+      .pill {
+        font-size: 11px;
+        padding: 4px 8px;
+      }
+    }
+    
+    /* Small mobile screens */
+    @media (max-width: 480px) {
+      .setup-panel {
+        padding: 15px;
+      }
+      
+      .character-select {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+      }
+      
+      .character-option span:last-child {
+        font-size: 10px;
+      }
+    }
 
-.panel {
-  flex: 1 1 auto;  /* panel expands to fill remaining height */
-  height: auto;    /* reset the fixed 100% so flex works */
-}
+    /* HUD styling */
+    .hud { 
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      pointer-events: none;
+      padding: 10px;
+      display: flex;
+      justify-content: space-between;
+      z-index: 10;
+    }
+    
+    .hud .left { 
+      font-weight: 700;
+      font-size: 14px;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
+    
+    .hud .right { 
+      text-align: right;
+      font-size: 12px;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    }
 
+    /* Game over overlay */
+    .overlay { 
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(10,16,32,.35);
+      backdrop-filter: blur(4px);
+      z-index: 20;
+      padding: 20px;
+    }
+    
+    .overlay.show { 
+      display: flex;
+      animation: fadeIn 0.3s ease;
+    }
+    
+    .dialog { 
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px;
+      width: min(480px, 100%);
+      max-width: calc(100% - 40px);
+      border: 1px solid var(--border);
+      box-shadow: 0 20px 60px rgba(16,24,40,.16);
+      animation: slideUp 0.3s ease;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    
+    @media (max-width: 480px) {
+      .dialog {
+        padding: 16px;
+      }
+      
+      .dialog h2 {
+        font-size: 20px;
+      }
+      
+      .dialog .actions {
+        flex-direction: column;
+      }
+      
+      .dialog button {
+        width: 100%;
+      }
+    }
 
+    /* Rest of your existing styles... */
     .card {
       background:var(--card); border:1px solid var(--border); border-radius:16px; padding:16px;
       box-shadow: 0 8px 28px rgba(16,24,40,.06);
@@ -134,7 +308,7 @@
     }
     button.primary { background:var(--acc); color:#fff; border-color:transparent; }
     button.primary:hover { filter:brightness(.96); transform: translateY(-1px); }
-    .row { display:flex; gap:10px; align-items:center; }
+    .row { display:flex; gap:10px; align-items:center; flex-wrap: wrap; }
 
     .features { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
     .pill { 
@@ -206,23 +380,12 @@
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
     }
-
-.stage {
-  position: relative;
-  height: 800px;          /* fixed height game window */
-  border-radius: 16px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-}
-
-
-    canvas#game { width:100%; height:100%; display:block; background:linear-gradient(#92d7ff,#e4f6ff); cursor: pointer; }
     
-    /* Hide form when game starts */
-    #setupForm.hidden {
-      display: none;
+    @keyframes slideUp {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
     }
-    
+
     /* Stats display */
     .stats-mini {
       margin-top: 12px;
@@ -249,31 +412,12 @@
       color: var(--muted);
       margin-top: 2px;
     }
-
-    .hud { position:absolute; inset:0; pointer-events:none; padding:10px; }
-    .hud .left { position:absolute; top:8px; left:10px; font-weight:700; }
-    .hud .right { position:absolute; top:8px; right:10px; text-align:right; }
-    .hud .right div { font-size:13px; color:#243; }
-
-    .overlay { position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:rgba(10,16,32,.35); backdrop-filter: blur(4px); }
-    .overlay.show { display:flex; animation: fadeIn 0.3s ease; }
-    .dialog { 
-      background:#fff; border-radius:16px; padding:18px; width:min(480px, 92%); 
-      border:1px solid var(--border); box-shadow: 0 20px 60px rgba(16,24,40,.16);
-      animation: slideUp 0.3s ease;
+    
+    .hidden {
+      display: none !important;
     }
-    
-    @keyframes slideUp {
-      from { transform: translateY(20px); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
-    
-    .dialog h2 { margin:0 0 8px; }
-    .dialog .msg { color:#435; margin-bottom:12px; }
-    .dialog .actions { display:flex; gap:10px; }
-    .dialog button { flex:1 }
-    
-    /* New achievement toast style */
+
+    /* Achievement toast */
     .achievement-toast {
       position: fixed;
       top: 20px;
@@ -286,6 +430,7 @@
       animation: slideInRight 0.5s ease;
       z-index: 1000;
       display: none;
+      max-width: calc(100% - 40px);
     }
     
     .achievement-toast.show {
@@ -297,18 +442,6 @@
       to { transform: translateX(0); }
     }
 
-    footer.protips {
-  margin: 16px auto 0;   /* some space above */
-  padding: 12px 16px;    /* nice inner padding */
-  max-width: 800px;      /* keeps text from stretching super wide */
-  border-radius: 12px;
-  background: rgba(79,124,255,0.06);
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--muted);
-}
-
-    
     /* Controls legend */
     .controls {
       margin-top: 10px;
@@ -333,30 +466,56 @@
       font-weight: bold;
     }
 
-
-
-
-
-
+    /* Back to menu button for mobile */
+    .mobile-menu-btn {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 15;
+      background: rgba(255,255,255,0.9);
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      display: none;
+    }
     
+    @media (max-width: 768px) {
+      .mobile-menu-btn.show {
+        display: block;
+      }
+    }
+
+    footer.protips {
+      padding: 12px 16px;
+      max-width: 800px;
+      margin: 16px auto;
+      border-radius: 12px;
+      background: rgba(79,124,255,0.06);
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--muted);
+    }
   </style>
 </head>
 <body>
-  <div class="wrap">
+  <div class="game-container">
+    <!-- Mobile header -->
+    <div class="mobile-header">
+      <h1>Face Flappy Ultimate</h1>
+      <div class="sub">Power-ups, skins & achievements!</div>
+    </div>
     
-
-<div class="panel" id="gamePanel">
-  <!-- Left: Landing + Form -->
-  <div class="card left-panel" id="leftPanel">
-
-      <h2 style="margin-top:0;">Face Flappy</h2>
-  <div class="sub">Now with power-ups, skins & achievements!</div>
-  <p class="hero-copy">
-    Face Flappy Ultimate is the enhanced version where <em>you</em> are the hero!  
-    Upload a photo, unlock skins, collect power-ups, and beat daily challenges.
-  </p>
-
-
+    <!-- Main content area -->
+    <div class="main-content">
+      <!-- Setup panel (becomes hidden when game starts) -->
+      <div class="setup-panel" id="setupPanel">
+        <h2 style="margin-top:0;">Face Flappy</h2>
+        <div class="sub">Now with power-ups, skins & achievements!</div>
+        <p style="font-size: 14px; line-height: 1.4;">
+          Face Flappy Ultimate is the enhanced version where <em>you</em> are the hero!  
+          Upload a photo, unlock skins, collect power-ups, and beat daily challenges.
+        </p>
 
         <form id="setupForm" autocomplete="off">
           <label for="playerName">Your name</label>
@@ -417,54 +576,53 @@
         <div class="controls">
           <strong>Controls:</strong>
           <div class="control-item">
-            <span class="control-key">SPACE</span> or <span class="control-key">↑</span> or <span class="control-key">TAP</span> = Flap
+            <span class="control-key">TAP</span> or <span class="control-key">SPACE</span> = Flap
           </div>
           <div class="control-item">
-            <span class="control-key">P</span> = Pause
-          </div>
-          <div class="control-item">
-            <span class="control-key">1-9</span> = Change skin (if unlocked)
+            <span class="control-key">P</span> = Pause (Desktop)
           </div>
         </div>
 
         <footer style="margin-top:12px;">
-          <div class="muted">Privacy: Photos are processed to remove the background for gameplay. Images aren't stored on our servers.</div>
+          <div class="muted" style="font-size: 12px;">Privacy: Photos are processed to remove the background for gameplay. Images aren't stored on our servers.</div>
         </footer>
       </div>
 
-      <!-- Right: Game Stage -->
-      <div class="stage card" aria-live="polite">
-        <canvas id="game" aria-label="Face Flappy Ultimate game canvas"></canvas>
-
-
-
-
-        <div class="hud" aria-hidden="true">
-          <div class="left" id="scoreEl">Score: 0</div>
-          <div class="right">
-            <div id="nameEl">Player: –</div>
-            <div id="bestEl">Best: 0</div>
+      <!-- Game area -->
+      <div class="game-area">
+        <button id="mobileMenuBtn" class="mobile-menu-btn">← Menu</button>
+        
+        <div class="canvas-wrapper">
+          <canvas id="game" aria-label="Face Flappy Ultimate game canvas"></canvas>
+          
+          <div class="hud" aria-hidden="true">
+            <div class="left" id="scoreEl">Score: 0</div>
+            <div class="right">
+              <div id="nameEl">Player: –</div>
+              <div id="bestEl">Best: 0</div>
+            </div>
           </div>
-        </div>
 
-        <div class="overlay" id="gameOver" role="dialog" aria-modal="true" aria-labelledby="goTitle">
-          <div class="dialog">
-            <h2 id="goTitle">Game Over</h2>
-            <div class="msg" id="gameOverMsg">You crashed!</div>
-            <div class="actions">
-              <button id="retryBtn" class="primary">🔄 Retry</button>
-              <button id="shareBtn">📋 Copy Score</button>
+          <div class="overlay" id="gameOver" role="dialog" aria-modal="true" aria-labelledby="goTitle">
+            <div class="dialog">
+              <h2 id="goTitle">Game Over</h2>
+              <div class="msg" id="gameOverMsg">You crashed!</div>
+              <div class="actions">
+                <button id="retryBtn" class="primary">🔄 Retry</button>
+                <button id="shareBtn">📋 Copy Score</button>
+                <button id="menuBtn">🏠 Menu</button>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
-
-<footer class="protips">
-  💡 Pro tips: Collect power-ups for special abilities! Score milestones unlock new skins. 
-  Complete daily challenges for bonus rewards. Build streaks by playing daily!
-</footer>
-
+    
+    <!-- Desktop footer -->
+    <footer class="protips">
+      💡 Pro tips: Collect power-ups for special abilities! Score milestones unlock new skins. 
+      Complete daily challenges for bonus rewards. Build streaks by playing daily!
+    </footer>
   </div>
   
   <!-- Achievement toast notification -->
@@ -472,11 +630,22 @@
     <span id="achievementText">🏆 Achievement Unlocked!</span>
   </div>
 
-  <!-- Your game logic (separate file) -->
+  <!-- Your game logic (keep game.js as is, it will work fine) -->
   <script src="game.js" defer></script>
   
-  <!-- Character selection and sound toggle -->
+  <!-- UI interaction scripts -->
   <script>
+    // Mobile menu button
+    document.getElementById('mobileMenuBtn').addEventListener('click', function() {
+      document.getElementById('setupPanel').classList.remove('hidden');
+      this.classList.remove('show');
+      
+      // Reset game state if needed
+      if (window.STATE) {
+        window.STATE.running = false;
+      }
+    });
+    
     // Character selection
     document.querySelectorAll('.character-option').forEach(option => {
       option.addEventListener('click', function() {
@@ -518,6 +687,44 @@
         document.getElementById('statAchievements').textContent = `${stats.unlockedAchievements.length}/25`;
       }
     };
+    
+    // Override form submission to handle mobile layout
+    document.getElementById('setupForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      // Hide setup panel
+      document.getElementById('setupPanel').classList.add('hidden');
+      
+      // Show mobile menu button
+      if (window.innerWidth <= 768) {
+        document.getElementById('mobileMenuBtn').classList.add('show');
+      }
+      
+      // Let the game.js handle the rest
+      // The form submission will be processed by the existing game.js code
+    });
+    
+    // Handle menu button in game over dialog
+    document.addEventListener('click', function(e) {
+      if (e.target && e.target.id === 'menuBtn') {
+        document.getElementById('setupPanel').classList.remove('hidden');
+        document.getElementById('mobileMenuBtn').classList.remove('show');
+      }
+    });
+    
+    // Prevent iOS bounce/scroll
+    document.addEventListener('touchmove', function(e) {
+      if (e.target.closest('#game')) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+    
+    // Handle window resize
+    window.addEventListener('resize', function() {
+      if (window.resizeCanvas) {
+        window.resizeCanvas();
+      }
+    });
   </script>
   
   <noscript>This game requires JavaScript enabled.</noscript>
