@@ -746,16 +746,7 @@ async function fileToDownscaledDataURL(file, max = 512) {
   return c.toDataURL("image/png");
 }
 
-async function removeBgViaApi(imageDataURL) {
-  const r = await fetch("/api/removebg", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ imageBase64: imageDataURL })
-  });
-  if (!r.ok) throw new Error(await r.text());
-  const { imageBase64 } = await r.json();
-  return imageBase64;
-}
+
 
 async function circleMaskFallback(imageDataURL, size = 256) {
   const img = await new Promise((res, rej) => {
@@ -808,17 +799,11 @@ function loadImage(dataUrl) {
 }
 
 async function getFaceSprite(file) {
-  const dataUrl = await fileToDownscaledDataURL(file, 512);
-  try {
-    const cut = await removeBgViaApi(dataUrl);
-    const stylized = await stylizeFace(cut);
-    return await loadImage(stylized);
-  } catch (e) {
-    console.warn("remove.bg failed, using circle fallback:", e);
-    const fallback = await circleMaskFallback(dataUrl, 256);
-    const stylized = await stylizeFace(fallback);
-    return await loadImage(stylized);
-  }
+  // Skip the API entirely - just use circle crop
+  const dataUrl = await fileToDownscaledDataURL(file, 128); // Even smaller for mobile
+  const fallback = await circleMaskFallback(dataUrl, 256);
+  const stylized = await stylizeFace(fallback);
+  return await loadImage(stylized);
 }
 
 // ---------- Canvas sizing ----------
@@ -2565,7 +2550,16 @@ els.form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const name = (els.name.value || "").trim();
   const file = els.photo.files && els.photo.files[0];
-  if (!name || !file) return;
+  if (!name || !file) {
+    alert("Please enter your name and select a photo");
+    return;
+  }
+  
+  // Check file size (mobile browsers can struggle with large images)
+  if (file.size > 5 * 1024 * 1024) { // 5MB limit
+    alert("Please choose a smaller photo (under 5MB)");
+    return;
+  }
   
   // Get selected character
   STATE.player.character = window.selectedCharacter || 'bird';
@@ -2590,17 +2584,13 @@ els.form.addEventListener("submit", async (e) => {
     STATE.faceImg = await loadImage(await circleMaskFallback(dataUrl, 256));
   }
 
-  // Show loading message while processing
-  ctx.fillStyle = "rgba(0,0,0,0.7)";
-  ctx.fillRect(0, 0, STATE.w, STATE.h);
-  ctx.fillStyle = "#fff";
-  ctx.font = `bold ${20 * STATE.dpr}px system-ui`;
-  ctx.textAlign = "center";
-  ctx.fillText("Loading your face...", STATE.w/2, STATE.h/2);
+// Show loading message
+showMessage("Loading your face...", 3000);
   
   // Hide the left panel and expand game area
   document.getElementById('gamePanel').classList.add('game-active');
-  
+
+   els.form.style.pointerEvents = 'none'; // Prevent double-submission
   // Resize canvas after panel animation
   setTimeout(() => {
     resizeCanvas();
