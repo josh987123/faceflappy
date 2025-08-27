@@ -883,6 +883,8 @@ function updateDifficulty() {
 
 // ---------- Game control ----------
 function initGame() {
+  resizeCanvas();  // ADD THIS LINE
+  
   STATE.running = false;
   STATE.started = false;
   STATE.score = 0;
@@ -2593,12 +2595,12 @@ showMessage("Loading your face...", 3000);
    els.form.style.pointerEvents = 'none'; // Prevent double-submission
   // Resize canvas after panel animation
   setTimeout(() => {
-    resizeCanvas();
-    initGame();
-    
-    // Show instructions
+  resizeCanvas();  // Canvas sizing first
+  setTimeout(() => {
+    initGame();    // Then initialize game (which also calls resizeCanvas now)
     showMessage("👆 TAP or SPACE to Start!", 3000);
-  }, 500);
+  }, 100);
+}, 500);
 });
 
 els.retry.addEventListener("click", () => {
@@ -2635,10 +2637,7 @@ function boot() {
   loadSoundPreference(); // Load saved sound preference
   initSounds(); // Initialize the sound system
   
-  ctx.font = `${16 * STATE.dpr}px system-ui`;
-  ctx.fillStyle = "#223";
-  ctx.textAlign = "center";
-  ctx.fillText("Upload your face & name to begin!", STATE.w/2, STATE.h/2);
+
   
   // Show version
   ctx.font = `${10 * STATE.dpr}px system-ui`;
