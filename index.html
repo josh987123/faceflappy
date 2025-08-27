@@ -96,6 +96,23 @@
       }
     }
 
+    /* === Flex fix so the game fills leftover space === */
+.wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.hero-header {
+  flex: 0 0 auto;  /* header keeps its natural height */
+}
+
+.panel {
+  flex: 1 1 auto;  /* panel expands to fill remaining height */
+  height: auto;    /* reset the fixed 100% so flex works */
+}
+
+
     .card {
       background:var(--card); border:1px solid var(--border); border-radius:16px; padding:16px;
       box-shadow: 0 8px 28px rgba(16,24,40,.06);
