@@ -119,6 +119,60 @@
       font-weight: bold;
     }
 
+    /* Character selection */
+    .character-select {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin: 10px 0;
+    }
+    
+    .character-option {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: white;
+    }
+    
+    .character-option:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .character-option.selected {
+      border-color: var(--acc);
+      background: linear-gradient(135deg, #4f7cff10, #4f7cff20);
+    }
+    
+    .character-icon {
+      font-size: 32px;
+      margin-bottom: 4px;
+    }
+    
+    .character-option span:last-child {
+      font-size: 12px;
+      font-weight: 500;
+    }
+    
+    /* Sound toggle button */
+    .sound-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: white;
+      min-width: 120px;
+      justify-content: center;
+    }
+    
+    .sound-toggle:hover {
+      background: #f0f4ff;
+    }
+    
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
@@ -266,9 +320,29 @@
 
           <label for="photo">Your photo (PNG or JPG)</label>
           <input id="photo" name="photo" type="file" accept="image/png, image/jpeg" required />
+          
+          <label for="character">Choose your character</label>
+          <div class="character-select" id="characterSelect">
+            <div class="character-option selected" data-character="bird">
+              <span class="character-icon">🦅</span>
+              <span>Bird</span>
+            </div>
+            <div class="character-option" data-character="unicorn">
+              <span class="character-icon">🦄</span>
+              <span>Unicorn</span>
+            </div>
+            <div class="character-option" data-character="cat">
+              <span class="character-icon">🐱</span>
+              <span>Cat</span>
+            </div>
+          </div>
 
           <div class="row" style="margin-top:12px;">
             <button class="primary" type="submit">🎮 Play Now</button>
+            <button type="button" id="soundToggle" class="sound-toggle">
+              <span id="soundIcon">🔊</span>
+              <span id="soundText">Sound ON</span>
+            </button>
           </div>
         </form>
 
@@ -355,8 +429,30 @@
   <!-- Your game logic (separate file) -->
   <script src="game.js" defer></script>
   
-  <!-- Optional: Add this for achievement notifications -->
+  <!-- Character selection and sound toggle -->
   <script>
+    // Character selection
+    document.querySelectorAll('.character-option').forEach(option => {
+      option.addEventListener('click', function() {
+        document.querySelectorAll('.character-option').forEach(o => o.classList.remove('selected'));
+        this.classList.add('selected');
+        window.selectedCharacter = this.dataset.character;
+      });
+    });
+    
+    // Initialize default character
+    window.selectedCharacter = 'bird';
+    
+    // Sound toggle
+    document.getElementById('soundToggle').addEventListener('click', function(e) {
+      e.preventDefault();
+      if (window.toggleGameSound) {
+        const enabled = window.toggleGameSound();
+        document.getElementById('soundIcon').textContent = enabled ? '🔊' : '🔇';
+        document.getElementById('soundText').textContent = enabled ? 'Sound ON' : 'Sound OFF';
+      }
+    });
+    
     // Helper function for achievement toasts
     window.showAchievementToast = function(text) {
       const toast = document.getElementById('achievementToast');
