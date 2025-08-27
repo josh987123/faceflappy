@@ -1,0 +1,8 @@
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/api/removebg"
+  to = "/.netlify/functions/removebg"
+  status = 200
