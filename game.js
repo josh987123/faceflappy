@@ -2385,7 +2385,7 @@ function drawCat(ctx, r, t) {
     ctx.fillText("TAP or SPACE to Fly!", w/2, h/2 - 20*STATE.dpr);
     
     ctx.font = `${14 * STATE.dpr}px system-ui`;
-    ctx.fillText("🎮 Much easier difficulty!", w/2, h/2 + 10*STATE.dpr);
+    ctx.fillText("🎮 Start easy, unlock harder challenges!", w/2, h/2 + 10*STATE.dpr);
     ctx.fillText("✨ Collect power-ups for special abilities", w/2, h/2 + 35*STATE.dpr);
     ctx.fillText("🏆 Unlock skins and achievements", w/2, h/2 + 60*STATE.dpr);
     
