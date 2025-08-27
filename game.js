@@ -32,6 +32,10 @@ const CFG = {
   PIPE_SPACING: 500,
   PLAYER_X: 140,
   FACE_SIZE: 76,
+  WING_SIZE: 1.5,  // Increased from default
+  BEAK_SIZE: 1.4,  // Increased from default
+  HORN_SIZE: 1.3,  // For unicorn
+  EAR_SIZE: 1.2,   // For cat
   BG_SCROLL: 30,
   FG_SCROLL: 70,
   MAX_DPR: 2,
@@ -195,6 +199,7 @@ const STATE = {
     hoverTime: 0,
     skin: 'classic',
     trail: [],
+    character: 'bird', // bird, unicorn, or cat
   },
   
   // Power-up states
@@ -679,10 +684,24 @@ function playSound(name) {
   }
 }
 
-// Toggle sound on/off
-function toggleSound() {
+// Make toggle function globally accessible
+window.toggleGameSound = function() {
   soundEnabled = !soundEnabled;
+  localStorage.setItem('faceFlappySoundEnabled', soundEnabled);
   return soundEnabled;
+};
+
+// Load sound preference
+function loadSoundPreference() {
+  const saved = localStorage.getItem('faceFlappySoundEnabled');
+  if (saved !== null) {
+    soundEnabled = saved === 'true';
+    // Update UI if it exists
+    if (document.getElementById('soundIcon')) {
+      document.getElementById('soundIcon').textContent = soundEnabled ? '🔊' : '🔇';
+      document.getElementById('soundText').textContent = soundEnabled ? 'Sound ON' : 'Sound OFF';
+    }
+  }
 }
 
 // ---------- Storage System ----------
@@ -1900,7 +1919,7 @@ function drawFrame(dt, t) {
   ctx.fillRect(0, h - 24*STATE.dpr, w*2, 24*STATE.dpr);
   ctx.restore();
 
-  // Draw player
+  // Draw player based on character type
   const px = STATE.player.x, py = STATE.player.y;
   const baseRadius = STATE.player.r;
   const r = STATE.powerups.shrink ? baseRadius * 0.5 : baseRadius;
@@ -1941,8 +1960,23 @@ function drawFrame(dt, t) {
     ctx.fill();
   }
   
-  // Body with skin
+  // Draw character based on selection
+  const character = STATE.player.character || 'bird';
+  
+  if (character === 'bird') {
+    drawBird(ctx, r, t);
+  } else if (character === 'unicorn') {
+    drawUnicorn(ctx, r, t);
+  } else if (character === 'cat') {
+    drawCat(ctx, r, t);
+  }
+  
+  ctx.restore();
+
+function drawBird(ctx, r, t) {
   const skin = SKINS[STATE.player.skin];
+  
+  // Body with skin
   if (skin.body.includes('gradient')) {
     const gradMatch = skin.body.match(/linear-gradient\(([^,]+),\s*(.+)\)/);
     if (gradMatch) {
@@ -1961,55 +1995,34 @@ function drawFrame(dt, t) {
   ctx.arc(0, 0, r, 0, Math.PI*2);
   ctx.fill();
   
-  // Special skin effects
-  if (skin.special === 'digital') {
-    ctx.strokeStyle = '#00ff00';
-    ctx.lineWidth = 1 * STATE.dpr;
-    ctx.font = `${6 * STATE.dpr}px monospace`;
-    ctx.fillStyle = '#00ff00';
-    for (let i = 0; i < 5; i++) {
-      const angle = (i / 5) * Math.PI * 2 + t * 0.001;
-      const tx = Math.cos(angle) * r * 0.7;
-      const ty = Math.sin(angle) * r * 0.7;
-      ctx.fillText(Math.random() < 0.5 ? '0' : '1', tx - 3*STATE.dpr, ty + 3*STATE.dpr);
-    }
-  } else if (skin.special === 'shadow') {
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
-    for (let i = 1; i <= 3; i++) {
-      ctx.beginPath();
-      ctx.arc(-i * 2 * STATE.dpr, i * 2 * STATE.dpr, r * (1 - i * 0.1), 0, Math.PI*2);
-      ctx.fill();
-    }
-  }
-  
-  // Animated wings
+  // BIGGER Animated wings
   ctx.fillStyle = skin.wing;
-  const wingFlap = Math.sin(STATE.player.wingPhase) * 15 * STATE.dpr;
-  const wingSize = STATE.player.wingFlapPower > 0 ? 1.4 : 1;
+  const wingFlap = Math.sin(STATE.player.wingPhase) * 20 * STATE.dpr; // Increased flap range
+  const wingSize = (STATE.player.wingFlapPower > 0 ? 1.5 : 1.2) * CFG.WING_SIZE;
   
-  // Left wing
+  // Left wing (bigger and more visible)
   ctx.save();
-  ctx.translate(-r/1.5, 0);
-  ctx.rotate((wingFlap / 30) - 0.3);
+  ctx.translate(-r * 0.8, 0);
+  ctx.rotate((wingFlap / 25) - 0.2);
   ctx.scale(wingSize, 1);
   ctx.beginPath();
-  ctx.ellipse(0, 0, r/2, r/2.5, -0.3, 0, Math.PI*2);
+  ctx.ellipse(0, 0, r * 0.7, r * 0.5, -0.2, 0, Math.PI*2);
   ctx.fill();
   
   // Wing detail
-  ctx.strokeStyle = 'rgba(0,0,0,0.1)';
-  ctx.lineWidth = 1 * STATE.dpr;
+  ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+  ctx.lineWidth = 2 * STATE.dpr;
   ctx.stroke();
   ctx.restore();
   
-  // Right wing (background)
+  // Right wing (background, also bigger)
   ctx.save();
-  ctx.globalAlpha = 0.7;
-  ctx.translate(r/2, 0);
-  ctx.rotate((-wingFlap / 40) + 0.2);
-  ctx.scale(wingSize * 0.7, 1);
+  ctx.globalAlpha = 0.8;
+  ctx.translate(r * 0.5, 0);
+  ctx.rotate((-wingFlap / 35) + 0.1);
+  ctx.scale(wingSize * 0.8, 1);
   ctx.beginPath();
-  ctx.ellipse(0, 0, r/3, r/3, 0.2, 0, Math.PI*2);
+  ctx.ellipse(0, 0, r * 0.5, r * 0.4, 0.1, 0, Math.PI*2);
   ctx.fill();
   ctx.restore();
   
@@ -2024,22 +2037,312 @@ function drawFrame(dt, t) {
     ctx.restore();
   }
   
-  // Beak
+  // BIGGER Beak
   ctx.fillStyle = "#ff9800";
+  ctx.strokeStyle = "#e65100";
+  ctx.lineWidth = 1 * STATE.dpr;
+  const beakSize = CFG.BEAK_SIZE;
   ctx.beginPath();
-  ctx.moveTo(r - 5*STATE.dpr, 0);
-  ctx.lineTo(r + 8*STATE.dpr, 0);
-  ctx.lineTo(r - 5*STATE.dpr, 8*STATE.dpr);
+  ctx.moveTo(r - 3*STATE.dpr, 0);
+  ctx.lineTo(r + 12*STATE.dpr * beakSize, 0);
+  ctx.lineTo(r - 3*STATE.dpr, 10*STATE.dpr * beakSize);
   ctx.closePath();
   ctx.fill();
+  ctx.stroke();
   
   // Eye (for expression)
   ctx.fillStyle = '#000';
   ctx.beginPath();
-  ctx.arc(r/3, -r/3, 2*STATE.dpr, 0, Math.PI*2);
+  ctx.arc(r/3, -r/3, 3*STATE.dpr, 0, Math.PI*2);
   ctx.fill();
   
+  // Add small tail feathers
+  ctx.fillStyle = skin.wing;
+  ctx.save();
+  ctx.translate(-r * 0.9, r * 0.3);
+  ctx.rotate(-0.3);
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r * 0.3, r * 0.15, 0, 0, Math.PI*2);
+  ctx.fill();
   ctx.restore();
+}
+
+function drawUnicorn(ctx, r, t) {
+  const skin = SKINS[STATE.player.skin];
+  
+  // Body (slightly elongated for unicorn)
+  const bodyGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+  bodyGrad.addColorStop(0, "#ffb3ff");
+  bodyGrad.addColorStop(0.5, "#ff99ff");
+  bodyGrad.addColorStop(1, "#ff66ff");
+  ctx.fillStyle = bodyGrad;
+  
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r, r * 0.95, 0, 0, Math.PI*2);
+  ctx.fill();
+  
+  // Mane (flowing rainbow)
+  const maneColors = ['#ff0000', '#ff9900', '#ffff00', '#00ff00', '#0099ff', '#9900ff'];
+  ctx.save();
+  ctx.translate(-r * 0.7, -r * 0.5);
+  maneColors.forEach((color, i) => {
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.7;
+    const offset = Math.sin(STATE.player.wingPhase + i) * 5 * STATE.dpr;
+    ctx.beginPath();
+    ctx.ellipse(offset, i * 4 * STATE.dpr, 15 * STATE.dpr, 8 * STATE.dpr, -0.3, 0, Math.PI*2);
+    ctx.fill();
+  });
+  ctx.restore();
+  ctx.globalAlpha = 1;
+  
+  // HORN (the defining feature!)
+  const hornSize = CFG.HORN_SIZE;
+  ctx.save();
+  ctx.translate(r * 0.6, -r * 0.6);
+  ctx.rotate(-0.3);
+  
+  // Horn gradient
+  const hornGrad = ctx.createLinearGradient(0, 0, 15 * STATE.dpr * hornSize, -25 * STATE.dpr * hornSize);
+  hornGrad.addColorStop(0, "#ffd700");
+  hornGrad.addColorStop(0.5, "#ffed4e");
+  hornGrad.addColorStop(1, "#ffffff");
+  ctx.fillStyle = hornGrad;
+  
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(12 * STATE.dpr * hornSize, -25 * STATE.dpr * hornSize);
+  ctx.lineTo(8 * STATE.dpr * hornSize, 0);
+  ctx.closePath();
+  ctx.fill();
+  
+  // Spiral on horn
+  ctx.strokeStyle = "#ffaa00";
+  ctx.lineWidth = 1.5 * STATE.dpr;
+  ctx.beginPath();
+  ctx.moveTo(4 * STATE.dpr, -2 * STATE.dpr);
+  ctx.lineTo(10 * STATE.dpr * hornSize, -20 * STATE.dpr * hornSize);
+  ctx.stroke();
+  ctx.restore();
+  
+  // Wings (magical fairy wings)
+  const wingFlap = Math.sin(STATE.player.wingPhase) * 25 * STATE.dpr;
+  const wingSize = STATE.player.wingFlapPower > 0 ? 1.6 : 1.3;
+  
+  // Wing gradient
+  const wingGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.8);
+  wingGrad.addColorStop(0, "rgba(255,255,255,0.8)");
+  wingGrad.addColorStop(0.5, "rgba(255,200,255,0.6)");
+  wingGrad.addColorStop(1, "rgba(255,150,255,0.4)");
+  
+  // Left wing
+  ctx.save();
+  ctx.fillStyle = wingGrad;
+  ctx.translate(-r * 0.9, -r * 0.1);
+  ctx.rotate((wingFlap / 20) - 0.4);
+  ctx.scale(wingSize, 1);
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r * 0.8, r * 0.6, -0.3, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+  
+  // Face
+  if (STATE.faceImg) {
+    const size = CFG.FACE_SIZE * STATE.dpr * (STATE.powerups.shrink ? 0.5 : 1);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(0, 0, r - 4*STATE.dpr, 0, Math.PI*2);
+    ctx.clip();
+    ctx.drawImage(STATE.faceImg, -size/2, -size/2, size, size);
+    ctx.restore();
+  }
+  
+  // Sparkles around unicorn
+  ctx.fillStyle = "#ffd700";
+  for (let i = 0; i < 3; i++) {
+    const sparkleAngle = (t * 0.002 + i * 2) % (Math.PI * 2);
+    const sparkleX = Math.cos(sparkleAngle) * (r + 20 * STATE.dpr);
+    const sparkleY = Math.sin(sparkleAngle) * (r + 20 * STATE.dpr);
+    ctx.globalAlpha = 0.5 + Math.sin(t * 0.01 + i) * 0.5;
+    ctx.beginPath();
+    ctx.arc(sparkleX, sparkleY, 2 * STATE.dpr, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  
+  // Tail
+  ctx.save();
+  ctx.translate(-r, r * 0.2);
+  const tailGrad = ctx.createLinearGradient(0, 0, -20 * STATE.dpr, 10 * STATE.dpr);
+  tailGrad.addColorStop(0, "#ff99ff");
+  tailGrad.addColorStop(1, "#ffccff");
+  ctx.fillStyle = tailGrad;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r * 0.4, r * 0.2, 0.3, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawCat(ctx, r, t) {
+  const skin = SKINS[STATE.player.skin];
+  
+  // Body (fluffy and round)
+  const bodyGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+  bodyGrad.addColorStop(0, "#ffa366");
+  bodyGrad.addColorStop(0.7, "#ff8c42");
+  bodyGrad.addColorStop(1, "#ff7328");
+  ctx.fillStyle = bodyGrad;
+  
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI*2);
+  ctx.fill();
+  
+  // Stripes
+  ctx.strokeStyle = "#ff6b1a";
+  ctx.lineWidth = 3 * STATE.dpr;
+  ctx.globalAlpha = 0.4;
+  for (let i = -2; i <= 2; i++) {
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.9, i * 0.3 - 0.5, i * 0.3 + 0.5);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  
+  // BIGGER Cat ears
+  const earSize = CFG.EAR_SIZE;
+  
+  // Left ear
+  ctx.save();
+  ctx.translate(-r * 0.6, -r * 0.7);
+  ctx.fillStyle = "#ff8c42";
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-10 * STATE.dpr * earSize, -20 * STATE.dpr * earSize);
+  ctx.lineTo(10 * STATE.dpr * earSize, -15 * STATE.dpr * earSize);
+  ctx.closePath();
+  ctx.fill();
+  
+  // Inner ear
+  ctx.fillStyle = "#ffb399";
+  ctx.beginPath();
+  ctx.moveTo(0, -5 * STATE.dpr);
+  ctx.lineTo(-5 * STATE.dpr * earSize, -15 * STATE.dpr * earSize);
+  ctx.lineTo(5 * STATE.dpr * earSize, -12 * STATE.dpr * earSize);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+  
+  // Right ear
+  ctx.save();
+  ctx.translate(r * 0.6, -r * 0.7);
+  ctx.fillStyle = "#ff8c42";
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-10 * STATE.dpr * earSize, -15 * STATE.dpr * earSize);
+  ctx.lineTo(10 * STATE.dpr * earSize, -20 * STATE.dpr * earSize);
+  ctx.closePath();
+  ctx.fill();
+  
+  // Inner ear
+  ctx.fillStyle = "#ffb399";
+  ctx.beginPath();
+  ctx.moveTo(0, -5 * STATE.dpr);
+  ctx.lineTo(-5 * STATE.dpr * earSize, -12 * STATE.dpr * earSize);
+  ctx.lineTo(5 * STATE.dpr * earSize, -15 * STATE.dpr * earSize);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+  
+  // Paws (instead of wings, cats use paws to "swim" through air)
+  const pawMotion = Math.sin(STATE.player.wingPhase) * 15 * STATE.dpr;
+  const pawSize = STATE.player.wingFlapPower > 0 ? 1.4 : 1.1;
+  
+  // Front left paw
+  ctx.save();
+  ctx.translate(-r * 0.7, r * 0.3);
+  ctx.rotate((pawMotion / 30) + 0.3);
+  ctx.fillStyle = "#ff7328";
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 12 * STATE.dpr * pawSize, 18 * STATE.dpr * pawSize, 0, 0, Math.PI*2);
+  ctx.fill();
+  
+  // Paw pads
+  ctx.fillStyle = "#ff5500";
+  ctx.beginPath();
+  ctx.arc(0, 5 * STATE.dpr, 3 * STATE.dpr, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+  
+  // Front right paw
+  ctx.save();
+  ctx.translate(r * 0.7, r * 0.3);
+  ctx.rotate((-pawMotion / 30) - 0.3);
+  ctx.fillStyle = "#ff7328";
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 12 * STATE.dpr * pawSize, 18 * STATE.dpr * pawSize, 0, 0, Math.PI*2);
+  ctx.fill();
+  
+  // Paw pads
+  ctx.fillStyle = "#ff5500";
+  ctx.beginPath();
+  ctx.arc(0, 5 * STATE.dpr, 3 * STATE.dpr, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+  
+  // Face
+  if (STATE.faceImg) {
+    const size = CFG.FACE_SIZE * STATE.dpr * (STATE.powerups.shrink ? 0.5 : 1);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(0, 0, r - 4*STATE.dpr, 0, Math.PI*2);
+    ctx.clip();
+    ctx.drawImage(STATE.faceImg, -size/2, -size/2, size, size);
+    ctx.restore();
+  }
+  
+  // Cat nose (pink triangle)
+  ctx.fillStyle = "#ff69b4";
+  ctx.beginPath();
+  ctx.moveTo(r - 5*STATE.dpr, 0);
+  ctx.lineTo(r - 2*STATE.dpr, -3*STATE.dpr);
+  ctx.lineTo(r + 2*STATE.dpr, 0);
+  ctx.lineTo(r - 2*STATE.dpr, 3*STATE.dpr);
+  ctx.closePath();
+  ctx.fill();
+  
+  // Whiskers
+  ctx.strokeStyle = "#333";
+  ctx.lineWidth = 1 * STATE.dpr;
+  
+  // Left whiskers
+  ctx.beginPath();
+  ctx.moveTo(r * 0.5, -5 * STATE.dpr);
+  ctx.lineTo(r + 15 * STATE.dpr, -8 * STATE.dpr);
+  ctx.moveTo(r * 0.5, 0);
+  ctx.lineTo(r + 18 * STATE.dpr, 0);
+  ctx.moveTo(r * 0.5, 5 * STATE.dpr);
+  ctx.lineTo(r + 15 * STATE.dpr, 8 * STATE.dpr);
+  ctx.stroke();
+  
+  // Tail (long and fluffy)
+  ctx.save();
+  ctx.translate(-r * 0.8, r * 0.1);
+  ctx.rotate(Math.sin(STATE.player.wingPhase * 0.5) * 0.2);
+  ctx.fillStyle = "#ff8c42";
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r * 0.6, r * 0.2, 0.5, 0, Math.PI*2);
+  ctx.fill();
+  
+  // Tail stripes
+  ctx.strokeStyle = "#ff6b1a";
+  ctx.lineWidth = 2 * STATE.dpr;
+  ctx.globalAlpha = 0.5;
+  ctx.beginPath();
+  ctx.arc(-5 * STATE.dpr, 0, r * 0.15, 0, Math.PI*2);
+  ctx.stroke();
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
   
   // Power-up status bar
   drawPowerupStatus(ctx);
@@ -2263,6 +2566,9 @@ els.form.addEventListener("submit", async (e) => {
   const name = (els.name.value || "").trim();
   const file = els.photo.files && els.photo.files[0];
   if (!name || !file) return;
+  
+  // Get selected character
+  STATE.player.character = window.selectedCharacter || 'bird';
 
   const key = `ff_best_${name.toLowerCase()}`;
   STATE.best = parseInt(localStorage.getItem(key) || "0", 10) || 0;
@@ -2336,6 +2642,7 @@ els.share.addEventListener("click", async () => {
 function boot() {
   resizeCanvas();
   loadStats();
+  loadSoundPreference(); // Load saved sound preference
   initSounds(); // Initialize the sound system
   
   ctx.font = `${16 * STATE.dpr}px system-ui`;
