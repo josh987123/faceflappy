@@ -816,19 +816,26 @@ async function getFaceSprite(file) {
 
 // ---------- Canvas sizing ----------
 function resizeCanvas() {
- initializeContext(); // ADD THIS LINE
-   
-  // Fixed dimensions that work well for both mobile and desktop
-  STATE.dpr = Math.min(CFG.MAX_DPR, window.devicePixelRatio || 1);
-  STATE.w = 800 * STATE.dpr;  // Fixed width
-  STATE.h = 600 * STATE.dpr;  // Fixed height
+  // Fixed canvas dimensions - simple and reliable
+  const fixedWidth = 800;
+  const fixedHeight = 600;
   
-  els.canvas.width = STATE.w;
-  els.canvas.height = STATE.h;
+  STATE.dpr = 1; // Keep it simple, no device pixel ratio scaling
+  STATE.w = fixedWidth;
+  STATE.h = fixedHeight;
+  
+  els.canvas.width = fixedWidth;
+  els.canvas.height = fixedHeight;
+  
+  // Make sure ctx is initialized
+  if (!ctx) {
+    ctx = els.canvas.getContext("2d");
+  }
+  
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
 }
-window.addEventListener("resize", resizeCanvas, { passive: true });
+
 
 // ---------- Pipes ----------
 function resetPipes() {
@@ -2634,18 +2641,23 @@ setTimeout(() => {
 
 // ---------- Boot ----------
 function boot() {
-  // Initialize context first
+  // Initialize context immediately
   ctx = els.canvas.getContext("2d");
   
+  // Set up canvas with fixed dimensions
   resizeCanvas();
+  
+  // Load saved data
   loadStats();
   loadSoundPreference();
   initSounds();
   
-  // Show version
-  ctx.font = `${10 * STATE.dpr}px system-ui`;
-  ctx.fillStyle = "#666";
-  ctx.fillText("Face Flappy Ultimate v2.0", STATE.w/2, STATE.h - 20*STATE.dpr);
+  // Initialize pipes and game state
+  resetPipes();
+  STATE.player.y = STATE.h / 2;
+  
+  // Draw initial frame
+  drawFrame(0);
 }
 
 boot();
