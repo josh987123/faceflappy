@@ -57,13 +57,19 @@
     
 
 
-    .panel { 
-      display:grid; 
-      grid-template-columns: 380px 1fr; /* Fixed left column, flexible game area */
-      gap:16px; 
-      align-items:stretch; 
-      transition: all 0.5s ease;
-    }
+.panel {
+  display: flex;
+  flex-direction: row;
+  height: 100%;           /* fill iframe height */
+  gap: 16px;
+  transition: all 0.5s ease;
+}
+
+    .left-panel {
+  flex: 0 0 380px;        /* fixed width column */
+  overflow-y: auto;       /* scrolls independently if too tall */
+}
+
     
     /* When game is active, hide left panel and make game full width */
     .panel.game-active {
@@ -202,8 +208,8 @@
     }
 
 .stage {
-  position: relative;
-  height: 100%;       /* fill iframe height */
+  flex: 1;                /* take up the rest of the space */
+  height: 100%;           /* fill panel height */
   border-radius: 16px;
   overflow: hidden;
   border: 1px solid var(--border);
